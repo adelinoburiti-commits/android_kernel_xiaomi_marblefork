@@ -3,7 +3,7 @@ name: Build Kernel
 on:
   push:
     branches: [bouquet_ci]
-
+  workflow_dispatch:
 
 jobs:
   build:
@@ -80,21 +80,20 @@ jobs:
           cd $GITHUB_WORKSPACE
           ./build_bouquet_ci.sh
           cp -r ~/Bouquet_marble_out/* ~/dist/
-      - name: Build kernel Image with KernelSU
+      - name: Build kernel Image with KernelSU Next & SuRFS
         run: |
-          cd ~
-          git clone https://github.com/tiann/KernelSU.git
           cd $GITHUB_WORKSPACE
+          # Instalar KernelSU Next v3.4.3
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s v3.4.3
+          
+          # Integrar SuRFS v2.3.0
+          git clone --branch v2.3.0 https://github.com/SuRFS-project/SuRFS.git fs/surfs
+          echo 'obj-$(CONFIG_SURFS) += surfs/' >> fs/Makefile
+          echo 'source "fs/surfs/Kconfig"' >> fs/Kconfig
+          
+          # Compilar o kernel
           ./build_bouquet_ci.sh --noclean --ksu -- Image
-          cp ~/Bouquet_marble_out/Image_ksu* ~/dist/
-      - name: Build kernel Image with KernelSU & susfs
-        continue-on-error: true
-        run: |
-          cd ~
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android12-5.10 --depth=1
-          cd $GITHUB_WORKSPACE
-          ./build_bouquet_ci.sh --susfs -- Image
-          cp ~/Bouquet_marble_out/Image_susfs* ~/dist/
+          cp ~/Bouquet_marble_out/Image* ~/dist/
       - name: Show ccache stats
         run: ccache --show-stats
       - name: Package AK3
@@ -103,7 +102,7 @@ jobs:
           git clone https://github.com/Pzqqt/AnyKernel3.git -b Marble-Bouquet --depth=1
           cd AnyKernel3
           
-          rm ./Image*
+          rm -f ./Image*
           cp -f ~/dist/devicetree/ukee.dtb   ./_dtb/dtb
           cp -f ~/dist/devicetree/dtbo.img   ./_dtb/dtbo.img
           cp -f ~/dist/alt_kernel_modules/*  ./_modules_hyperos/_alt/
